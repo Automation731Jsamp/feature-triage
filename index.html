@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Feature Triage</title>
+<style>
+:root{
+  --bg:#f7f6f2; --panel:#ffffff; --text:#1d2127; --muted:#586070; --border:#d6d3c8; --soft:#efede6;
+  --focus:#1a5fb4; --banner-bg:#fff2cc; --banner-text:#4a3b00;
+  --c-platform:#0072B2; --c-adapter:#E69F00; --c-process:#009E73; --c-defer:#D55E00;
+  --on-platform:#ffffff; --build:rgba(0,114,178,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14161a; --panel:#1c1f25; --text:#e8e9ec; --muted:#a6adba; --border:#353a44; --soft:#262a33;
+    --focus:#7fb2ff; --banner-bg:#3a3118; --banner-text:#f3e4b0;
+    --c-platform:#56B4E9; --on-platform:#000000; --build:rgba(86,180,233,.14);
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.banner{position:sticky;top:0;z-index:20;background:var(--banner-bg);color:var(--banner-text);border-bottom:1px solid var(--border);padding:8px 20px;font-size:13px;line-height:1.4}
+.top{max-width:1280px;margin:0 auto;padding:18px 20px 0}
+.top h1{margin:0;font-size:24px;letter-spacing:-.01em}
+.top p{margin:4px 0 0;color:var(--muted)}
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr) 340px;gap:20px;max-width:1280px;margin:0 auto;padding:16px 20px 8px;align-items:start}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px;font-weight:700}
+.muted{color:var(--muted)}
+.hint{margin:4px 0 0;font-size:12px;color:var(--muted)}
+
+/* Filters */
+.filters{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+.filters>details>summary{display:none;cursor:pointer;font-weight:600;padding:2px 0}
+.fgroup{margin-bottom:16px}
+.firm{display:flex;gap:10px;align-items:flex-start;padding:6px 0;cursor:pointer}
+.firm input,.review input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--focus);flex:none}
+.ftxt{display:flex;flex-direction:column;line-height:1.35}
+.ftxt small{color:var(--muted);font-size:12px}
+.bchips{display:flex;flex-wrap:wrap}
+.bchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:5px 10px;font-size:13px;cursor:pointer;margin:0 6px 6px 0}
+.bchip[aria-pressed="true"]{border:2px solid var(--text);padding:4px 9px;font-weight:700;background:var(--soft)}
+.bchip .n{color:var(--muted);font-variant-numeric:tabular-nums}
+.review{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.n{font-variant-numeric:tabular-nums;color:var(--muted)}
+.linkbtn{background:none;border:0;padding:0;color:var(--focus);text-decoration:underline;cursor:pointer;font-size:14px}
+.disc{margin-top:14px;font-size:14px}
+.disc summary{cursor:pointer;font-weight:600}
+.disc p,.disc dl{margin:8px 0 0}
+.disc dt{font-weight:600;margin-top:8px}
+.disc dd{margin:0;color:var(--muted)}
+
+/* Table */
+.listhead{display:flex;align-items:baseline;gap:10px}
+.tablewrap{border:1px solid var(--border);border-radius:10px;overflow-x:auto;background:var(--panel)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 10px;text-align:left;vertical-align:middle;border-bottom:1px solid var(--border);font-size:14px}
+tbody tr:last-child td{border-bottom:0}
+thead th{font-size:12px;color:var(--muted);white-space:nowrap}
+.sort{background:none;border:0;padding:2px 0;cursor:pointer;font-weight:700;font-size:12px;color:var(--muted)}
+.sort:hover{color:var(--text)}
+.arr{display:inline-block;width:1em;margin-left:3px}
+tbody tr[data-id]{cursor:pointer}
+tbody tr[data-id]:hover{background:var(--soft)}
+tbody tr.sel{background:var(--soft)}
+tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--focus)}
+td.num{color:var(--muted);width:48px;font-variant-numeric:tabular-nums}
+.req-btn{background:none;border:0;padding:0;text-align:left;cursor:pointer;line-height:1.35;color:var(--text)}
+tr.sel .req-btn{font-weight:700}
+.chip{display:inline-block;border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;margin:0 4px 4px 0;background:var(--panel)}
+.chip.sm{padding:0 6px;margin:0 3px 0 0}
+.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--text);margin-right:3px}
+.dots i.on{background:var(--text)}
+.risk-high{font-weight:700}
+.bucket{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.ico{flex:none}
+.empty{padding:20px;text-align:center;color:var(--muted)}
+.detail-row td{background:var(--bg);padding:10px}
+
+/* Detail */
+.detail-aside{position:sticky;top:calc(var(--banner-h,56px) + 12px);max-height:calc(100vh - var(--banner-h,56px) - 24px);overflow:auto}
+.detail-aside:empty{display:none}
+.detail-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+.kicker{margin:0;font-size:12px;color:var(--muted)}
+blockquote{margin:6px 0 12px;font-size:17px;line-height:1.4;font-weight:600}
+.firms{margin-bottom:4px}
+.bucket-lg{display:flex;gap:10px;align-items:center;border:2px solid;border-radius:10px;padding:8px 12px;margin:10px 0}
+.bucket-lg div{display:flex;flex-direction:column;line-height:1.35}
+.bucket-lg span{color:var(--muted);font-size:13px}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:12px 0}
+.metrics dt{font-size:12px;color:var(--muted)}
+.metrics dd{margin:0;font-weight:600}
+.blk{margin-top:12px}
+.blk h4{margin:0 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.blk p{margin:0}
+.conf{display:flex;align-items:center;gap:10px}
+.meter{flex:1;height:8px;border-radius:999px;background:var(--soft);border:1px solid var(--border);overflow:hidden}
+.meter span{display:block;height:100%;background:var(--c-platform)}
+.meter.low span{background:var(--c-defer)}
+.confn{font-variant-numeric:tabular-nums;font-weight:600}
+.flag{font-size:12px;font-weight:700;border:1px solid var(--c-defer);border-radius:6px;padding:1px 6px}
+.small{font-size:12px;color:var(--muted)}
+.gate{border-left:3px solid var(--c-defer);background:var(--soft);padding:8px 12px;border-radius:0 8px 8px 0;margin-top:14px}
+.gate h4{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.gate p{margin:4px 0}
+.tags{display:flex;flex-wrap:wrap;margin-top:4px}
+.tag{display:inline-block;border:1px dashed var(--muted);border-radius:6px;padding:1px 7px;font-size:12px;margin:0 4px 4px 0}
+.tag-gate{display:inline-block;margin-left:8px;font-size:11px;font-weight:700;border:1.5px dashed var(--text);border-radius:6px;padding:0 6px}
+tr.gated td.num,tr.gated .req-btn{color:var(--muted)}
+.lead{max-width:80ch;color:var(--text)!important}
+.mk.gated .shape{stroke:var(--text);stroke-dasharray:3 2;stroke-width:2}
+
+/* Chart */
+.chart-section{margin-top:18px}
+.chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.chart-head h2{margin:0}
+.btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:600}
+.btn:hover{border-color:var(--text)}
+.chartwrap{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px}
+.chartwrap svg{display:block;width:100%;height:auto}
+.chartwrap svg text{fill:var(--text);font-size:12px;font-family:inherit}
+.tip{position:absolute;z-index:5;max-width:260px;background:var(--text);color:var(--bg);padding:6px 9px;border-radius:6px;font-size:12px;line-height:1.35;pointer-events:none;transform:translate(-50%,-100%)}
+.tip[hidden]{display:none}
+.mk{cursor:pointer;outline:none}
+.mk .shape{stroke:var(--panel);stroke-width:1.5}
+.mk .ring{fill:none;stroke:var(--focus);stroke-width:2.5;opacity:0}
+.mk.sel .ring{stroke:var(--text);opacity:1}
+.mk:focus-visible .ring{stroke:var(--focus);opacity:1}
+.mk text{font-size:10px;font-weight:700;pointer-events:none}
+.mk-platform text{fill:var(--on-platform)}
+.mk-adapter text,.mk-process text,.mk-defer text{fill:#000}
+ul.legend{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;padding:0;margin:10px 0 0;font-size:13px}
+ul.legend li{display:inline-flex;align-items:center;gap:6px}
+.swatch{display:inline-block;width:14px;height:14px;background:var(--build);border:1px solid var(--border)}
+
+/* Key and about */
+.key{max-width:1280px;margin:12px auto 0;padding:12px 20px 0}
+.key h2{margin:0 0 6px}
+.key ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 20px}
+.key li{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.4}
+.key li .ico{margin-top:3px}
+.formula{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.about{max-width:1280px;margin:12px auto 0;padding:0 20px}
+.about>details{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
+.about>details>summary{cursor:pointer;font-weight:700}
+.about ul{margin:8px 0 0;padding-left:20px}
+.about li{margin:3px 0}
+.about pre{background:var(--soft);border-radius:8px;padding:12px;overflow:auto;font-size:12.5px;line-height:1.45;margin:8px 0 0}
+footer{max-width:1280px;margin:14px auto 36px;padding:0 20px;color:var(--muted);font-size:13px}
+
+@media (max-width:1100px) and (min-width:801px){
+  .layout{grid-template-columns:220px minmax(0,1fr)}
+  .detail-aside{grid-column:1 / -1;position:static;max-height:none}
+}
+@media (min-width:801px){
+  .filters>details>summary{display:none}
+}
+@media (max-width:800px){
+  .banner{padding:6px 12px;font-size:12px}
+  .top,.key,.about,footer{padding-left:12px;padding-right:12px}
+  .top h1{font-size:21px}
+  .layout{grid-template-columns:1fr;padding:12px;gap:12px}
+  .hide-sm{display:none}
+  .detail-aside{display:none}
+  .filters>details>summary{display:list-item}
+  .filters>details[open]>summary{margin-bottom:12px}
+  th,td{padding:9px 8px}
+}
+@media print{
+  body{background:#fff;color:#000}
+  .banner{position:static;border:1px solid #999}
+  .filters,.chart-head .btn,.sort .arr{display:none}
+  .layout{display:block}
+  .detail-aside{position:static;max-height:none;margin-top:14px;break-inside:avoid}
+  .tablewrap{overflow:visible}
+  tr{break-inside:avoid}
+  .about{display:none}
+}
+</style>
+</head>
+<body>
+<div class="banner" role="note" id="banner">Synthetic data. This is my own exploration of how a growing wealth firm might tell shared features from firm-specific ones. It doesn't describe any real firm's processes, data or systems.</div>
+
+<header class="top">
+  <h1>Feature Triage</h1>
+  <p>Which requests should become platform features, and which should stay with one firm?</p>
+  <p class="lead" id="lead"></p>
+</header>
+
+<section class="key" id="bucketKey" tabindex="-1" aria-label="What the buckets mean">
+  <h2>What the buckets mean</h2>
+  <ul></ul>
+</section>
+
+<noscript><p style="padding:20px">This prototype needs JavaScript. It makes no network requests.</p></noscript>
+
+<main class="layout">
+  <aside class="filters" aria-label="Filters">
+    <details id="filtersBox" open>
+      <summary>Filters</summary>
+      <div class="fgroup">
+        <h2>Firms</h2>
+        <div id="firms"></div>
+      </div>
+      <div class="fgroup">
+        <h2>Bucket</h2>
+        <div id="buckets" class="bchips"></div>
+        <p class="hint">None selected shows all buckets.</p>
+      </div>
+      <div class="fgroup">
+        <label class="review"><input type="checkbox" id="review"><span>Needs review only <span id="reviewCount" class="n"></span></span></label>
+        <p class="hint">Low confidence means below 0.70.</p>
+      </div>
+      <button type="button" class="linkbtn" data-reset>Reset filters</button>
+    </details>
+  </aside>
+
+  <section class="list" aria-label="Ranked requests">
+    <div class="listhead"><h2>Ranked requests</h2><span id="shown" class="muted"></span></div>
+    <p class="formula">Ranked by reuse &times; 2 &minus; effort &minus; risk. High-risk requests are &ldquo;gated&rdquo; and sit last. The full explanation is under the table.</p>
+    <div class="tablewrap">
+      <table id="tbl">
+        <caption class="sr-only">Feature requests ranked by build-first score. Use arrow keys on a request to move the selection.</caption>
+        <thead>
+          <tr>
+            <th scope="col" aria-sort="ascending"><button type="button" class="sort" data-sort="rank">Rank<span class="arr" aria-hidden="true"></span></button></th>
+            <th scope="col" aria-sort="none"><button type="button" class="sort" data-sort="request">Request<span class="arr" aria-hidden="true"></span></button></th>
+            <th scope="col" class="hide-sm" aria-sort="none"><button type="button" class="sort" data-sort="firms">Firms<span class="arr" aria-hidden="true"></span></button></th>
+            <th scope="col" class="hide-sm" aria-sort="none"><button type="button" class="sort" data-sort="reuse">Reuse<span class="arr" aria-hidden="true"></span></button></th>
+            <th scope="col" class="hide-sm" aria-sort="none"><button type="button" class="sort" data-sort="effort">Effort<span class="arr" aria-hidden="true"></span></button></th>
+            <th scope="col" class="hide-sm" aria-sort="none"><button type="button" class="sort" data-sort="risk">Risk<span class="arr" aria-hidden="true"></span></button></th>
+            <th scope="col" aria-sort="none"><button type="button" class="sort" data-sort="bucket">Bucket<span class="arr" aria-hidden="true"></span></button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <details class="disc">
+      <summary>How ranking works</summary>
+      <p>Each request gets a score: reuse &times; 2, minus effort, minus risk. Reuse is 1 for one firm, 2 for some and 3 for most. Effort is 1 for small, 2 for medium and 3 for large. Risk is 1 for low, 2 for medium and 3 for high. Higher scores rank first, and ties go to the request with the higher confidence. High-risk requests are gated: they rank after everything else, whatever their score, because supervision design has to be approved before anyone builds them. Click a column header to re-sort; the Rank column always shows the default order. Reuse, effort and risk are my judgments on made-up data, not measurements.</p>
+    </details>
+
+    <div class="chart-section">
+      <div class="chart-head">
+        <h2>Reuse vs effort</h2>
+        <button type="button" class="btn" id="chartToggle" aria-expanded="true" aria-controls="chartBox">Hide chart</button>
+      </div>
+      <div id="chartBox">
+        <div class="chartwrap" id="chartWrap">
+          <div id="svgHost"></div>
+          <div id="tip" class="tip" role="tooltip" hidden></div>
+        </div>
+        <p class="sr-only" id="chartSummary"></p>
+        <ul class="legend" id="legend"></ul>
+      </div>
+    </div>
+  </section>
+
+  <aside class="detail-aside" id="detail" aria-label="Request detail"></aside>
+</main>
+
+<section class="about" aria-label="About this prototype">
+  <details>
+    <summary>About this prototype</summary>
+    <ul>
+      <li>I wrote the sorted results by hand. No AI produced them, and nothing here has been measured.</li>
+      <li>The three firms are made up and small. Real acquired firms differ in size, custodian and platform.</li>
+      <li>Reuse, effort and risk are my judgments. The compliance touchpoints are prompts for review, not legal conclusions.</li>
+      <li>A real version would need your data, your supervision model and a compliance reviewer.</li>
+    </ul>
+    <details class="disc">
+      <summary>Fields a real version would fill in</summary>
+      <pre><code>FeatureTriage:
+  request_id: str
+  firms_affected: list[str]
+  reuse: one_firm | some_firms | most_firms
+  effort: S | M | L
+  supervision_risk: low | medium | high   # agent acts on client money, advice, or communications
+  gated: bool                             # derived: supervision_risk == high; blocks the build
+  compliance_touchpoints: list[str]       # prompts for review, not legal conclusions
+  custodian_dependent: bool               # effort estimate assumes today's custodian setup
+  defer_reason: low_value | compliance_first | waiting_on_demand | None
+  firm_specific_dependency: str | None
+  bucket: platform | adapter | process_not_software | defer
+  rationale: str
+  confidence: float
+  question_for_advisor: str | None</code></pre>
+    </details>
+  </details>
+</section>
+
+<footer>This is a static prototype. I wrote the sorted results by hand, so no AI produced them. A real version would have a model fill in the fields listed under &ldquo;About this prototype&rdquo;, check its answers against your team&rsquo;s own labels, and have a person review the results.</footer>
+
+<div class="sr-only" id="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+var DATA = {
+  "firms": [
+    {"id":"A","name":"Larkspur Advisory","type":"Solo practice","advisors":1,"households":140,"notes":"One advisor, simple stack, single custodian"},
+    {"id":"B","name":"Meridian Row Partners","type":"Multi-advisor team","advisors":6,"households":900,"notes":"In-house planning templates, own e-signature vendor, equity-comp clients"},
+    {"id":"C","name":"Cobalt Retirement Group","type":"Retirement-plan heavy","advisors":4,"households":400,"notes":"Also serves 60 plan sponsors; two custodians, one legacy file format"}
+  ],
+  "requests": [
+    {"id":1,"text":"Draft our quarterly review summary in our house format.","firms":["A","B","C"],"reuse":"most","effort":"M","risk":"low","bucket":"platform","why":"All three firms write one, and the format is just a template setting.","conf":0.88,"ask":"How much does the format vary by client tier?"},
+    {"id":2,"text":"Sync meeting notes into our CRM fields.","firms":["A","B","C"],"reuse":"most","effort":"M","risk":"low","bucket":"platform","why":"Every firm logs meeting notes. The field names differ, but the job is the same.","conf":0.84,"ask":"Which CRM fields do you fill by hand today?"},
+    {"id":3,"text":"Pull outside 401(k) balances into the household view.","firms":["B","C"],"reuse":"some","effort":"L","risk":"medium","bucket":"adapter","why":"It depends on which data source each firm already uses for outside accounts.","conf":0.71,"ask":"Which source holds those balances today?"},
+    {"id":4,"text":"Honor the fee exceptions we negotiated years ago.","firms":["B"],"reuse":"one","effort":"M","risk":"high","bucket":"process_not_software","why":"These are contract terms, not product behavior. Billing operations should handle them.","conf":0.78,"ask":"How many clients have exceptions, and who tracks them?"},
+    {"id":5,"text":"Flag Medicare premium surcharge risk for retirees.","firms":["A","C"],"reuse":"some","effort":"S","risk":"medium","bucket":"platform","why":"It's a simple rule that works for any retiree household.","conf":0.74,"ask":"At what income gap do you want a flag?"},
+    {"id":6,"text":"Send me RMD reminders before deadlines.","firms":["A","B","C"],"reuse":"most","effort":"S","risk":"low","bucket":"platform","why":"Every firm needs it, it follows clear rules, and it's quick to build.","conf":0.9,"ask":null},
+    {"id":7,"text":"Use our planning template for equity compensation.","firms":["B"],"reuse":"one","effort":"M","risk":"low","bucket":"adapter","why":"The template is specific to this firm, but the engine behind it can be shared.","conf":0.6,"ask":"Which parts of the template are your judgment versus a standard checklist?"},
+    {"id":8,"text":"Use our existing e-signature vendor for account opening.","firms":["A","B"],"reuse":"some","effort":"M","risk":"medium","bucket":"adapter","why":"Same job, different vendor. Each firm needs a thin connection to its own.","conf":0.8,"ask":"Is switching vendors an option?"},
+    {"id":9,"text":"Send birthday and anniversary notes to clients.","firms":["A","B"],"reuse":"some","effort":"S","risk":"low","bucket":"defer","why":"Not much value for the effort right now. Revisit once the core workflows are live.","conf":0.58,"ask":"Does this drive any client response you can point to?"},
+    {"id":10,"text":"Build a pre-meeting brief from the last three conversations.","firms":["A","B","C"],"reuse":"most","effort":"M","risk":"low","bucket":"platform","why":"Every advisor prepares for meetings, and the need is the same everywhere.","conf":0.9,"ask":null},
+    {"id":11,"text":"Rebalance accounts automatically without my approval.","firms":["B"],"reuse":"one","effort":"L","risk":"high","bucket":"defer","why":"The agent would be acting on client money. We'd need to design sign-off and supervision first.","conf":0.92,"ask":"What is the approval rule today, and who reviews exceptions?"},
+    {"id":12,"text":"Import our 2019 to 2023 client notes from the old system.","firms":["A"],"reuse":"one","effort":"L","risk":"low","bucket":"adapter","why":"It's a one-firm data import, so it would be a connector built just for that firm.","conf":0.62,"ask":"Is the archive structured, or free-text files?"},
+    {"id":13,"text":"Show tax lots for concentrated stock at the household level.","firms":["B","C"],"reuse":"some","effort":"L","risk":"medium","bucket":"platform","why":"Firms with equity-heavy clients share this need, though data access varies.","conf":0.7,"ask":"Which clients need this most?"},
+    {"id":14,"text":"Put our firm's branding on the client portal.","firms":["A","B","C"],"reuse":"most","effort":"S","risk":"low","bucket":"adapter","why":"It's a setting for each firm, not new logic.","conf":0.82,"ask":null},
+    {"id":15,"text":"Send me a weekly list of clients who mentioned a life event.","firms":["A","B","C"],"reuse":"most","effort":"M","risk":"medium","bucket":"platform","why":"Every firm wants it and it's valuable, but we'd need review rules for sensitive details.","conf":0.8,"ask":"What counts as a life event for you?"},
+    {"id":16,"text":"Use our own risk questionnaire.","firms":["B"],"reuse":"one","effort":"M","risk":"medium","bucket":"process_not_software","why":"This is a firm-specific document and a compliance choice more than a product feature.","conf":0.65,"ask":"Is the questionnaire part of your compliance procedures?"},
+    {"id":17,"text":"Track plan-sponsor fee disclosures.","firms":["C"],"reuse":"one","effort":"L","risk":"medium","bucket":"defer","why":"Only one firm's plan business needs it. Revisit if another plan-heavy firm joins.","conf":0.77,"ask":"How are these tracked today?"},
+    {"id":18,"text":"Draft client emails for my review.","firms":["A","B","C"],"reuse":"most","effort":"S","risk":"medium","bucket":"platform","why":"Every firm needs it, it's quick to build, and an advisor approves everything before it's sent.","conf":0.93,"ask":null},
+    {"id":19,"text":"Read the legacy file format from our second custodian.","firms":["C"],"reuse":"one","effort":"M","risk":"low","bucket":"adapter","why":"It's an integration for one custodian only.","conf":0.84,"ask":null},
+    {"id":20,"text":"Flag accounts missing a beneficiary.","firms":["A","B","C"],"reuse":"most","effort":"S","risk":"low","bucket":"platform","why":"Every firm needs it, it follows clear rules, and it's easy to check.","conf":0.91,"ask":null},
+    {"id":21,"text":"Transcribe client calls and pull out action items.","firms":["A","B","C"],"reuse":"most","effort":"M","risk":"high","bucket":"platform","why":"Every firm wants it, but we'd need to design recording consent and retention with compliance first.","conf":0.76,"ask":"What do you record today, and with what consent?"},
+    {"id":22,"text":"Email clients a monthly performance summary automatically.","firms":["A","B"],"reuse":"some","effort":"S","risk":"high","bucket":"defer","why":"Performance communications are heavily regulated, so compliance has to come first.","conf":0.86,"ask":"Who reviews these today?"},
+    {"id":23,"text":"Call households 'families' in the interface.","firms":["A"],"reuse":"one","effort":"S","risk":"low","bucket":"adapter","why":"It's a wording setting.","conf":0.85,"ask":null},
+    {"id":24,"text":"Track where each new client came from.","firms":["A","B","C"],"reuse":"most","effort":"S","risk":"medium","bucket":"platform","why":"It's needed for growth reporting. If referrals are paid for, compliance should review how we track them.","conf":0.8,"ask":"Do you pay for any referrals today?"}
+  ]
+};
+
+var COMP = {
+  2:['Books and records'], 4:['Fee disclosure'], 10:['Books and records'],
+  11:['Supervision of trading','Best interest'], 15:['Sensitive client details','Books and records'],
+  16:['Suitability and best interest'], 17:['Fee disclosure'],
+  18:['Advisor review before send','Books and records'],
+  21:['Client consent','Recording retention','Books and records'],
+  22:['Marketing Rule (performance)','Supervision of client communications'],
+  24:['Marketing Rule (referral compensation)']
+};
+var CUST = {3:1, 11:1, 13:1, 19:1, 20:1};
+var DEFER_WHY = {
+  9:['Low value','Not worth the effort yet. Revisit once the core workflows are live.'],
+  11:['Compliance first','We need supervision and approval design before building anything.'],
+  17:['Waiting on demand','Revisit if a second plan-heavy firm joins.'],
+  22:['Compliance first','Performance communications need a compliance review design before any build.']
+};
+var KEY = {platform:'platform', adapter:'adapter', process_not_software:'process', defer:'defer'};
+var BUCKET = {
+  platform: {label:'Platform', shape:'circle', desc:'Build it once into the core, so most firms benefit.'},
+  adapter: {label:'Adapter', shape:'square', desc:'A small per-firm connection or setting. The engine is shared; the edge is specific to each firm.'},
+  process_not_software: {label:'Process', shape:'diamond', desc:'Handle it with a checklist, a billing or operations step, or a one-time project instead of new software.'},
+  defer: {label:'Defer', shape:'triangle', desc:'Not now: it is low value, needs compliance design first, or is waiting for more firms to ask.'}
+};
+var BUCKET_ORDER = ['platform','adapter','process_not_software','defer'];
+var REUSE = {one:1, some:2, most:3};
+var REUSE_LABEL = {one:'One firm', some:'Some firms', most:'Most firms'};
+var EFFORT = {S:1, M:2, L:3};
+var EFFORT_LABEL = {S:'Small', M:'Medium', L:'Large'};
+var RISK = {low:1, medium:2, high:3};
+var RISK_SHORT = {low:'Low', medium:'Med', high:'High'};
+var RISK_FULL = {low:'Low', medium:'Medium', high:'High: needs supervision and compliance review'};
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* ---------- Data prep ---------- */
+var FIRMS = {};
+DATA.firms.forEach(function(f){ FIRMS[f.id] = f; });
+
+var REQS = DATA.requests.map(function(r){
+  var o = {};
+  Object.keys(r).forEach(function(k){ o[k] = r[k]; });
+  o.reuseN = REUSE[r.reuse];
+  o.effortN = EFFORT[r.effort];
+  o.riskN = RISK[r.risk];
+  o.score = o.reuseN * 2 - o.effortN - o.riskN;
+  o.review = r.conf < 0.70;
+  o.gated = r.risk === 'high';
+  o.comp = COMP[r.id] || [];
+  o.cust = !!CUST[r.id];
+  o.dr = DEFER_WHY[r.id] || null;
+  return o;
+});
+var byId = {};
+REQS.forEach(function(r){ byId[r.id] = r; });
+
+REQS.slice().sort(function(a,b){
+  return ((a.gated?1:0) - (b.gated?1:0)) || (b.score - a.score) || (b.conf - a.conf) || (a.id - b.id);
+}).forEach(function(r, i){ r.rank = i + 1; });
+
+
+/* ---------- State ---------- */
+var state = {
+  firms: new Set(DATA.firms.map(function(f){ return f.id; })),
+  buckets: new Set(),
+  review: false,
+  sortKey: 'rank',
+  sortDir: 'asc',
+  selectedId: null,
+  chart: true,
+  mobile: false,
+  list: []
+};
+
+var $ = function(s){ return document.querySelector(s); };
+var els = {
+  firms: $('#firms'), buckets: $('#buckets'), review: $('#review'), reviewCount: $('#reviewCount'),
+  rows: $('#rows'), shown: $('#shown'), detail: $('#detail'), svgHost: $('#svgHost'), tip: $('#tip'),
+  chartWrap: $('#chartWrap'), chartBox: $('#chartBox'), chartToggle: $('#chartToggle'),
+  chartSummary: $('#chartSummary'), lead: $('#lead'), legend: $('#legend'), status: $('#status'),
+  filtersBox: $('#filtersBox'), banner: $('#banner')
+};
+
+/* ---------- Shapes ---------- */
+function shapeSVG(bucket, size){
+  var s = size || 14, c = s / 2, inner;
+  switch(BUCKET[bucket].shape){
+    case 'circle': inner = '<circle cx="'+c+'" cy="'+c+'" r="'+(c-1)+'"/>'; break;
+    case 'square': inner = '<rect x="1" y="1" width="'+(s-2)+'" height="'+(s-2)+'"/>'; break;
+    case 'diamond': inner = '<polygon points="'+c+',1 '+(s-1)+','+c+' '+c+','+(s-1)+' 1,'+c+'"/>'; break;
+    default: inner = '<polygon points="'+c+',1 '+(s-1)+','+(s-1)+' 1,'+(s-1)+'"/>';
+  }
+  return '<svg class="ico" width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'" aria-hidden="true" focusable="false" style="fill:var(--c-'+KEY[bucket]+')">'+inner+'</svg>';
+}
+function bucketLabel(bucket){
+  return '<span class="bucket">'+shapeSVG(bucket,14)+BUCKET[bucket].label+'</span>';
+}
+function dots(r){
+  var d = '';
+  for(var i=1;i<=3;i++){ d += '<i class="'+(i<=r.reuseN?'on':'')+'"></i>'; }
+  return '<span class="dots" role="img" aria-label="Reuse: '+REUSE_LABEL[r.reuse].toLowerCase()+' ('+r.reuseN+' of 3)">'+d+'</span>';
+}
+
+/* ---------- Filtering and sorting ---------- */
+function matches(r, skip){
+  if(!r.firms.some(function(f){ return state.firms.has(f); })) return false;
+  if(skip !== 'bucket' && state.buckets.size && !state.buckets.has(r.bucket)) return false;
+  if(skip !== 'review' && state.review && !r.review) return false;
+  return true;
+}
+var SORTERS = {
+  rank: function(r){ return r.rank; },
+  request: function(r){ return r.text.toLowerCase(); },
+  firms: function(r){ return r.firms.join(''); },
+  reuse: function(r){ return r.reuseN; },
+  effort: function(r){ return r.effortN; },
+  risk: function(r){ return r.riskN; },
+  bucket: function(r){ return BUCKET[r.bucket].label; }
+};
+function visible(){
+  var f = SORTERS[state.sortKey];
+  var dir = state.sortDir === 'asc' ? 1 : -1;
+  var list = REQS.filter(function(r){ return matches(r); });
+  list.sort(function(a,b){
+    var x = f(a), y = f(b);
+    var c = x < y ? -1 : (x > y ? 1 : 0);
+    return c !== 0 ? c * dir : a.rank - b.rank;
+  });
+  return list;
+}
+function ensureSelection(){
+  var list = visible();
+  var ok = list.some(function(r){ return r.id === state.selectedId; });
+  if(!ok) state.selectedId = list.length ? list[0].id : null;
+}
+
+/* ---------- Detail ---------- */
+function detailHTML(r){
+  var b = BUCKET[r.bucket], k = KEY[r.bucket];
+  var firms = r.firms.map(function(f){
+    return '<span class="chip" title="'+esc(FIRMS[f].notes)+'">'+f+' &middot; '+esc(FIRMS[f].name)+'</span>';
+  }).join('');
+  var pct = Math.round(r.conf * 100);
+  var flag = r.review ? '<span class="flag">Needs review</span>' : '';
+  var ask = r.ask ? '<div class="blk"><h4>Ask advisors</h4><p>'+esc(r.ask)+'</p></div>' : '';
+  var gate = r.gated ? '<div class="gate"><h4>Gated</h4><p>This one sits outside the ranking. Supervision and compliance need to sign off on the design before anyone builds it.</p></div>' : '';
+  var comp = r.comp.length ? '<div class="blk"><h4>Compliance touchpoints</h4><div class="tags">'+r.comp.map(function(c){ return '<span class="tag">'+esc(c)+'</span>'; }).join('')+'</div><p class="small">These are prompts for review, not legal conclusions.</p></div>' : '';
+  var cust = r.cust ? '<div class="blk"><h4>Custodian dependency</h4><p>The effort estimate assumes today\'s custodian setup. If the custodian changes, we would need to redo it.</p></div>' : '';
+  var dr = r.dr ? '<div class="blk"><h4>Why deferred: '+esc(r.dr[0])+'</h4><p>'+esc(r.dr[1])+'</p></div>' : '';
+  return '<div class="detail-card">'+
+    '<p class="kicker">Rank '+r.rank+' of '+REQS.length+(r.gated ? ', gated' : ' by build-first score')+'</p>'+
+    '<blockquote>&ldquo;'+esc(r.text)+'&rdquo;</blockquote>'+
+    '<div class="firms">'+firms+'</div>'+
+    '<div class="bucket-lg" style="border-color:var(--c-'+k+')">'+shapeSVG(r.bucket,22)+
+      '<div><strong>'+b.label+'</strong><span>'+esc(b.desc)+'</span></div></div>'+
+    '<dl class="metrics">'+
+      '<div><dt>Reuse</dt><dd>'+REUSE_LABEL[r.reuse]+' ('+r.reuseN+' of 3)</dd></div>'+
+      '<div><dt>Effort</dt><dd>'+EFFORT_LABEL[r.effort]+' ('+r.effort+')</dd></div>'+
+      '<div><dt>Risk</dt><dd>'+esc(RISK_FULL[r.risk])+'</dd></div>'+
+      '<div><dt>Build-first score</dt><dd>'+(r.gated ? 'Gated. The raw score of '+r.score+' is not used to rank it.' : r.reuseN+' &times; 2 &minus; '+r.effortN+' &minus; '+r.riskN+' = '+r.score)+'</dd></div>'+
+    '</dl>'+
+    '<div class="blk"><h4>Why</h4><p>'+esc(r.why)+'</p></div>'+
+    '<div class="blk"><h4>Confidence</h4><div class="conf">'+
+      '<div class="meter'+(r.review?' low':'')+'" role="img" aria-label="Confidence '+r.conf.toFixed(2)+' out of 1"><span style="width:'+pct+'%"></span></div>'+
+      '<span class="confn">'+r.conf.toFixed(2)+'</span>'+flag+'</div></div>'+
+    gate+dr+comp+cust+ask+
+  '</div>';
+}
+function renderDetail(){
+  if(state.mobile){ els.detail.innerHTML = ''; return; }
+  var r = byId[state.selectedId];
+  els.detail.innerHTML = r ? detailHTML(r) :
+    '<div class="detail-card"><p class="muted">Select a request to see its bucket and reasoning.</p></div>';
+}
+
+/* ---------- Table ---------- */
+function rowHTML(r){
+  var sel = r.id === state.selectedId;
+  var cls = (sel?'sel':'') + (r.gated?' gated':'');
+  return '<tr data-id="'+r.id+'"'+(cls?' class="'+cls.trim()+'"':'')+'>'+
+    '<td class="num">'+r.rank+'</td>'+
+    '<td class="req"><button type="button" class="req-btn" data-req="'+r.id+'" tabindex="'+(sel?0:-1)+'"'+(sel?' aria-current="true"':'')+'>'+esc(r.text)+'</button></td>'+
+    '<td class="hide-sm">'+r.firms.map(function(f){ return '<span class="chip sm">'+f+'</span>'; }).join('')+'</td>'+
+    '<td class="hide-sm">'+dots(r)+'</td>'+
+    '<td class="hide-sm">'+r.effort+'</td>'+
+    '<td class="hide-sm'+(r.risk==='high'?' risk-high':'')+'">'+RISK_SHORT[r.risk]+'</td>'+
+    '<td>'+bucketLabel(r.bucket)+(r.gated?'<span class="tag-gate">Gated</span>':'')+'</td>'+
+  '</tr>';
+}
+function renderTable(list){
+  var html = '';
+  if(!list.length){
+    html = '<tr><td colspan="7" class="empty">No requests match these filters. <button type="button" class="linkbtn" data-reset>Reset filters</button></td></tr>';
+  } else {
+    list.forEach(function(r){
+      html += rowHTML(r);
+      if(state.mobile && r.id === state.selectedId){
+        html += '<tr class="detail-row"><td colspan="3">'+detailHTML(r)+'</td></tr>';
+      }
+    });
+  }
+  els.rows.innerHTML = html;
+  document.querySelectorAll('#tbl thead th').forEach(function(th){
+    var b = th.querySelector('.sort');
+    var active = b.dataset.sort === state.sortKey;
+    th.setAttribute('aria-sort', active ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+    b.querySelector('.arr').textContent = active ? (state.sortDir === 'asc' ? '\u25B2' : '\u25BC') : '';
+  });
+}
+
+/* ---------- Chart ---------- */
+var CW = 144, CH = 92, X0 = 74, Y0 = 16, VBW = X0 + 3*CW + 10, VBH = Y0 + 3*CH + 46;
+function rnd(seed){ var s = Math.sin(seed * 12.9898) * 43758.5453; return s - Math.floor(s); }
+var LAYOUT = {};
+(function(){
+  var cells = {};
+  REQS.forEach(function(r){ var k = r.reuseN+'-'+r.effortN; (cells[k] = cells[k] || []).push(r); });
+  Object.keys(cells).forEach(function(k){
+    var arr = cells[k].sort(function(a,b){ return a.id - b.id; });
+    var n = arr.length;
+    var cols = n <= 3 ? n : (n === 4 ? 2 : 3);
+    var rows = Math.ceil(n / cols);
+    var first = arr[0];
+    var ci = first.effortN - 1, ri = 3 - first.reuseN;
+    var cx0 = X0 + ci*CW + CW/2, cy0 = Y0 + ri*CH + CH/2 + 7;
+    arr.forEach(function(r, i){
+      var row = Math.floor(i / cols), col = i % cols;
+      var inRow = Math.min(cols, n - row*cols);
+      LAYOUT[r.id] = {
+        x: cx0 + (col - (inRow-1)/2) * 40 + (rnd(r.id) - 0.5) * 8,
+        y: cy0 + (row - (rows-1)/2) * 34 + (rnd(r.id*7+3) - 0.5) * 6
+      };
+    });
+  });
+})();
+
+function markerShape(bucket){
+  switch(BUCKET[bucket].shape){
+    case 'circle': return {shape:'<circle class="shape" r="11"/>', ring:'<circle class="ring" r="16"/>', ty:3.5};
+    case 'square': return {shape:'<rect class="shape" x="-10" y="-10" width="20" height="20"/>', ring:'<rect class="ring" x="-15" y="-15" width="30" height="30" rx="3"/>', ty:3.5};
+    case 'diamond': return {shape:'<polygon class="shape" points="0,-14 14,0 0,14 -14,0"/>', ring:'<polygon class="ring" points="0,-20 20,0 0,20 -20,0"/>', ty:3.5};
+    default: return {shape:'<polygon class="shape" points="0,-13 13,10 -13,10"/>', ring:'<polygon class="ring" points="0,-19 19,14 -19,14"/>', ty:6.5};
+  }
+}
+function gridSVG(){
+  var s = '';
+  var ri, ci;
+  for(ri=0; ri<3; ri++){
+    for(ci=0; ci<3; ci++){
+      var fill = (ri===0 && ci===0) ? 'var(--build)' : 'var(--panel)';
+      s += '<rect x="'+(X0+ci*CW)+'" y="'+(Y0+ri*CH)+'" width="'+CW+'" height="'+CH+'" fill="'+fill+'" stroke="var(--border)"/>';
+    }
+  }
+  s += '<text x="'+(X0+8)+'" y="'+(Y0+16)+'" style="font-weight:700;font-size:11px">Build first</text>';
+  var ylabels = ['3 firms','2 firms','1 firm'];
+  for(ri=0; ri<3; ri++){
+    s += '<text x="'+(X0-8)+'" y="'+(Y0+ri*CH+CH/2+4)+'" text-anchor="end">'+ylabels[ri]+'</text>';
+  }
+  var xlabels = ['S (small)','M (medium)','L (large)'];
+  for(ci=0; ci<3; ci++){
+    s += '<text x="'+(X0+ci*CW+CW/2)+'" y="'+(Y0+3*CH+18)+'" text-anchor="middle">'+xlabels[ci]+'</text>';
+  }
+  s += '<text x="'+(X0+1.5*CW)+'" y="'+(Y0+3*CH+38)+'" text-anchor="middle" style="font-weight:700">Effort</text>';
+  s += '<text transform="translate(14 '+(Y0+1.5*CH)+') rotate(-90)" text-anchor="middle" style="font-weight:700">Reuse: firms that asked</text>';
+  return s;
+}
+var GRID = gridSVG();
+
+function markerHTML(r){
+  var p = LAYOUT[r.id], sel = r.id === state.selectedId, k = KEY[r.bucket];
+  var m = markerShape(r.bucket);
+  var label = '#'+r.rank+' '+r.text+'. '+BUCKET[r.bucket].label+(r.gated?', gated':'')+'. Reuse '+r.reuseN+' of 3, effort '+r.effort+'.';
+  return '<g class="mk mk-'+k+(sel?' sel':'')+(r.gated?' gated':'')+'" data-id="'+r.id+'" transform="translate('+p.x.toFixed(1)+' '+p.y.toFixed(1)+')" role="button" tabindex="'+(sel?0:-1)+'" aria-pressed="'+(sel?'true':'false')+'" aria-label="'+esc(label)+'">'+
+    m.ring + m.shape.replace('class="shape"','class="shape" style="fill:var(--c-'+k+')"') +
+    '<text text-anchor="middle" y="'+m.ty+'">'+r.rank+'</text></g>';
+}
+function hideTip(){ els.tip.hidden = true; }
+function showTip(g){
+  var r = byId[+g.getAttribute('data-id')];
+  if(!r) return;
+  els.tip.textContent = '#'+r.rank+' \u00B7 '+r.text+' \u2014 '+BUCKET[r.bucket].label+(r.gated?' (gated)':'');
+  els.tip.hidden = false;
+  var wb = els.chartWrap.getBoundingClientRect(), gb = g.getBoundingClientRect();
+  var left = gb.left - wb.left + gb.width/2;
+  var half = Math.min(135, wb.width/2);
+  left = Math.max(half, Math.min(left, wb.width - half));
+  els.tip.style.left = left + 'px';
+  els.tip.style.top = (gb.top - wb.top - 8) + 'px';
+}
+function renderChart(list){
+  hideTip();
+  var markers = list.slice().sort(function(a,b){
+    return (b.reuseN - a.reuseN) || (a.effortN - b.effortN) || (a.id - b.id);
+  }).map(markerHTML).join('');
+  els.svgHost.innerHTML = '<svg viewBox="0 0 '+VBW+' '+VBH+'" role="group" aria-label="Reuse versus effort chart. Each marker is a request. Use arrow keys to move between markers and Enter to select.">'+GRID+markers+'</svg>';
+  var cnt = {};
+  var bf = 0;
+  list.forEach(function(r){ var k = r.reuseN+'-'+r.effortN; cnt[k] = (cnt[k]||0) + 1; if(k === '3-1' && !r.gated) bf++; });
+  var parts = [];
+  [3,2,1].forEach(function(u){ ['S','M','L'].forEach(function(e){
+    var n = cnt[u+'-'+EFFORT[e]];
+    if(n) parts.push('reuse '+u+', effort '+e+': '+n);
+  }); });
+  els.chartSummary.textContent = list.length+' of '+REQS.length+' requests plotted. '+bf+' ungated in the build-first cell (high reuse, small effort). '+list.filter(function(r){ return r.gated; }).length+' gated, drawn with a dashed outline. '+parts.join('; ')+'.';
+}
+
+/* ---------- Filters UI ---------- */
+function buildFilters(){
+  els.firms.innerHTML = DATA.firms.map(function(f){
+    var n = REQS.filter(function(r){ return r.firms.indexOf(f.id) >= 0; }).length;
+    return '<label class="firm" title="'+esc(f.notes)+'"><input type="checkbox" data-firm="'+f.id+'" checked>'+
+      '<span class="ftxt"><strong>'+f.id+' &middot; '+esc(f.name)+'</strong>'+
+      '<small>'+esc(f.type)+' &middot; '+f.advisors+' advisor'+(f.advisors>1?'s':'')+' &middot; '+f.households+' households</small>'+
+      '<small>'+n+' requests</small></span></label>';
+  }).join('');
+  els.buckets.innerHTML = BUCKET_ORDER.map(function(k){
+    return '<button type="button" class="bchip" data-bucket="'+k+'" aria-pressed="false">'+shapeSVG(k,14)+BUCKET[k].label+' <span class="n">0</span></button>';
+  }).join('');
+  els.legend.innerHTML = BUCKET_ORDER.map(function(k){
+    return '<li>'+shapeSVG(k,14)+BUCKET[k].label+'</li>';
+  }).join('') + '<li><span class="swatch" aria-hidden="true"></span>Shaded cell: build first</li><li><svg class="ico" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/></svg>Dashed outline: gated, waits on supervision design</li><li class="muted">The number in each marker is its rank in the table</li>';
+}
+function updateFilterUI(){
+  els.firms.querySelectorAll('input').forEach(function(i){ i.checked = state.firms.has(i.dataset.firm); });
+  els.buckets.querySelectorAll('.bchip').forEach(function(b){
+    var k = b.dataset.bucket;
+    b.setAttribute('aria-pressed', state.buckets.has(k) ? 'true' : 'false');
+    b.querySelector('.n').textContent = REQS.filter(function(r){ return r.bucket === k && matches(r, 'bucket'); }).length;
+  });
+  els.review.checked = state.review;
+  els.reviewCount.textContent = '(' + REQS.filter(function(r){ return r.review && matches(r, 'review'); }).length + ')';
+}
+function resetFilters(){
+  state.firms = new Set(DATA.firms.map(function(f){ return f.id; }));
+  state.buckets.clear();
+  state.review = false;
+}
+
+/* ---------- Bucket key ---------- */
+function buildKey(){
+  var items = BUCKET_ORDER.map(function(k){
+    return '<li>'+shapeSVG(k,16)+'<span><strong>'+BUCKET[k].label+'</strong> '+esc(BUCKET[k].desc)+'</span></li>';
+  }).join('');
+  items += '<li><svg class="ico" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2"/></svg><span><strong>Gated</strong> (not a bucket) A high-risk request: it acts on client money, gives advice or sends client communications. It sits last until supervision design is approved.</span></li>';
+  $('#bucketKey ul').innerHTML = items;
+}
+
+/* ---------- Render orchestration ---------- */
+function buildLead(){
+  var c = {platform:0, adapter:0, process_not_software:0, defer:0};
+  REQS.forEach(function(r){ c[r.bucket]++; });
+  els.lead.innerHTML = REQS.length+' made-up requests from three made-up firms, sorted into four buckets: '+c.platform+' platform, '+c.adapter+' adapter, '+c.process_not_software+' process and '+c.defer+' defer. '+
+    'Start with the top row or the dashed outlines (gated requests). Not sure what a bucket means? '+'<a href="#bucketKey">The key just below explains each one.</a>';
+}
+function renderAll(){
+  ensureSelection();
+  updateFilterUI();
+  var list = visible();
+  state.list = list;
+  renderTable(list);
+  renderChart(list);
+  renderDetail();
+  els.shown.textContent = '(' + list.length + ' of ' + REQS.length + ')';
+  var sel = byId[state.selectedId];
+  els.status.textContent = list.length + ' of ' + REQS.length + ' requests shown.' + (sel ? ' Selected: ' + sel.text : '');
+}
+function rowButton(id){ return els.rows.querySelector('.req-btn[data-req="'+id+'"]'); }
+function select(id, opts){
+  opts = opts || {};
+  state.selectedId = id;
+  renderAll();
+  if(opts.focus === 'row'){
+    var b = rowButton(id); if(b) b.focus();
+  } else if(opts.focus === 'marker'){
+    var g = els.svgHost.querySelector('.mk[data-id="'+id+'"]'); if(g && g.focus) g.focus();
+    var rb = rowButton(id); if(rb && rb.scrollIntoView) rb.scrollIntoView({block:'nearest'});
+  }
+}
+
+/* ---------- Events ---------- */
+els.rows.addEventListener('click', function(e){
+  var tr = e.target.closest('tr[data-id]');
+  if(!tr) return;
+  select(+tr.dataset.id, {focus:'row'});
+});
+els.rows.addEventListener('keydown', function(e){
+  var btn = e.target.closest('.req-btn');
+  if(!btn) return;
+  var list = state.list, idx = -1, id = +btn.dataset.req, i;
+  for(i=0;i<list.length;i++){ if(list[i].id === id){ idx = i; break; } }
+  var next = null;
+  if(e.key === 'ArrowDown') next = list[idx+1];
+  else if(e.key === 'ArrowUp') next = list[idx-1];
+  else if(e.key === 'Home') next = list[0];
+  else if(e.key === 'End') next = list[list.length-1];
+  else return;
+  e.preventDefault();
+  if(next) select(next.id, {focus:'row'});
+});
+document.querySelector('#tbl thead').addEventListener('click', function(e){
+  var b = e.target.closest('.sort');
+  if(!b) return;
+  var k = b.dataset.sort;
+  if(state.sortKey === k){ state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc'; }
+  else { state.sortKey = k; state.sortDir = 'asc'; }
+  renderAll();
+});
+els.firms.addEventListener('change', function(e){
+  var i = e.target.closest('input[data-firm]');
+  if(!i) return;
+  if(i.checked) state.firms.add(i.dataset.firm); else state.firms.delete(i.dataset.firm);
+  renderAll();
+});
+els.buckets.addEventListener('click', function(e){
+  var b = e.target.closest('.bchip');
+  if(!b) return;
+  var k = b.dataset.bucket;
+  if(state.buckets.has(k)) state.buckets.delete(k); else state.buckets.add(k);
+  renderAll();
+});
+els.review.addEventListener('change', function(){ state.review = els.review.checked; renderAll(); });
+document.addEventListener('click', function(e){
+  if(e.target.closest('[data-reset]')){ resetFilters(); renderAll(); return; }
+});
+els.chartToggle.addEventListener('click', function(){
+  state.chart = !state.chart;
+  els.chartBox.hidden = !state.chart;
+  els.chartToggle.textContent = state.chart ? 'Hide chart' : 'Show chart';
+  els.chartToggle.setAttribute('aria-expanded', state.chart ? 'true' : 'false');
+});
+/* chart interactions */
+els.svgHost.addEventListener('click', function(e){
+  var g = e.target.closest('.mk'); if(!g) return;
+  select(+g.getAttribute('data-id'), {focus:'marker'});
+});
+els.svgHost.addEventListener('keydown', function(e){
+  var g = e.target.closest ? e.target.closest('.mk') : null; if(!g) return;
+  if(e.key === 'Enter' || e.key === ' '){
+    e.preventDefault();
+    select(+g.getAttribute('data-id'), {focus:'marker'});
+    return;
+  }
+  var dir = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 0);
+  if(!dir) return;
+  e.preventDefault();
+  var all = Array.prototype.slice.call(els.svgHost.querySelectorAll('.mk'));
+  var i = all.indexOf(g), n = all[i + dir];
+  if(n && n.focus) n.focus();
+});
+els.svgHost.addEventListener('mouseover', function(e){ var g = e.target.closest('.mk'); if(g) showTip(g); });
+els.svgHost.addEventListener('mouseout', function(e){ if(!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('.mk')) hideTip(); });
+els.svgHost.addEventListener('focusin', function(e){ var g = e.target.closest('.mk'); if(g) showTip(g); });
+els.svgHost.addEventListener('focusout', hideTip);
+/* Escape closes disclosures */
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  document.querySelectorAll('details[open]').forEach(function(d){
+    if(d === els.filtersBox && !state.mobile) return;
+    d.open = false;
+  });
+  hideTip();
+});
+
+/* ---------- Responsive ---------- */
+function setBannerH(){ document.documentElement.style.setProperty('--banner-h', els.banner.offsetHeight + 'px'); }
+var mq = window.matchMedia ? window.matchMedia('(max-width: 800px)') : null;
+function applyMode(){
+  var was = state.mobile;
+  state.mobile = !!(mq && mq.matches);
+  els.filtersBox.open = !state.mobile;
+  setBannerH();
+  if(was !== state.mobile) renderAll();
+}
+if(mq){
+  if(mq.addEventListener) mq.addEventListener('change', applyMode); else if(mq.addListener) mq.addListener(applyMode);
+}
+window.addEventListener('resize', setBannerH);
+
+/* ---------- Init ---------- */
+buildFilters();
+buildKey(); buildLead();
+state.mobile = !!(mq && mq.matches);
+els.filtersBox.open = !state.mobile;
+setBannerH();
+renderAll();
+})();
+</script>
+</body>
+</html>
